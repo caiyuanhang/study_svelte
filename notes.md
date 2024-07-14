@@ -853,7 +853,54 @@ export async function getRandomNumber() {
 </button>  
 ```
 
-###### 1.1.11.3 组件事件
+###### 1.1.11.3 创建和派发组件自定义事件
+
+组件可以派发事件，但是需要创建一个事件派发器，这个可以通过 `svelte` 里面的 `createEventDispatcher` 方法来创建，`createEventDispatcher` 方法调用后会返回一个 `dispatch` 方法，该方法接收两个参数：
+
+- 参数1，是`事件名`（任意定义，但要确认 `dispatch` 和 `on` 的事件名是一致的，才能触发对应的时间执行函数）；
+- 参数2，是`事件配置对象`，包含：`text`等属性。
+
+在组件内部调用 `dispatch` 方法之后，记得要在组件外部（父组件）使用 `on:事件名` 来监听 `dispatch` 的事件，`dispatch`函数的第二个参数传递的内容，可以在监听时间的事件对象 `event` 里面的 `detail`属性中看到。
+
+具体示例代码如下：
+
+App.svelte
+
+```svelte
+<script>
+ import Inner from './Inner.svelte';
+
+ function handleMessage(event) {
+  alert(event.detail.text);  // 这里的 event.detail 可以拿到 dispatch 第二个参数传递的所有内容。 
+ }
+</script>
+
+<Inner on:message={handleMessage} />
+
+<div on:message={handleMessage}>123</div>
+```
+
+Inner.svelte
+
+```svelte
+<script>
+ import { createEventDispatcher } from "svelte"
+
+ const dispatch = createEventDispatcher()
+ 
+ function sayHello() {
+  dispatch('message', {
+   text: 'Hello!'
+  });
+ }
+</script>
+
+<button on:click={sayHello}>
+ Click to say hello
+</button>
+```
+
+**注意：**`createEventDispatcher` 必须在组件第一次实例化时调用（也就是在 script 标签的上下文中调用），不能稍后在 setTimeout 回调中调用（因为这些后续逻辑可能发生在组件的生命周期之外，或者与组件的当前实例状态不同步）。简单说，就是 `createEventDispatcher` 应该在组件实例化时立即调用，并且它的调用应该与组件的生命周期同步。这是为了确保自定义事件的派发与组件的当前状态和行为保持一致，从而保持应用的逻辑清晰和可预测。在实际开发中，应该在组件的 `<script>` 部分顶部调用 `createEventDispatcher`，并立即将返回的 `dispatch` 函数保存到组件的作用域中，以便在后续的逻辑中使用它来派发事件。这样做可以避免潜在的错误和混淆，使你的 Svelte 应用更加健壮和易于维护。
 
 ###### 1.1.11.4
 
