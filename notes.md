@@ -858,7 +858,7 @@ export async function getRandomNumber() {
 组件可以派发事件，但是需要创建一个事件派发器，这个可以通过 `svelte` 里面的 `createEventDispatcher` 方法来创建，`createEventDispatcher` 方法调用后会返回一个 `dispatch` 方法，该方法接收两个参数：
 
 - 参数1，是`事件名`（任意定义，但要确认 `dispatch` 和 `on` 的事件名是一致的，才能触发对应的时间执行函数）；
-- 参数2，是`事件配置对象`，包含：`text`等属性。
+- 参数2，是传递的参数。
 
 在组件内部调用 `dispatch` 方法之后，记得要在组件外部（父组件）使用 `on:事件名` 来监听 `dispatch` 的事件，`dispatch`函数的第二个参数传递的内容，可以在监听时间的事件对象 `event` 里面的 `detail`属性中看到。
 
@@ -902,31 +902,1184 @@ Inner.svelte
 
 **注意：**`createEventDispatcher` 必须在组件第一次实例化时调用（也就是在 script 标签的上下文中调用），不能稍后在 setTimeout 回调中调用（因为这些后续逻辑可能发生在组件的生命周期之外，或者与组件的当前实例状态不同步）。简单说，就是 `createEventDispatcher` 应该在组件实例化时立即调用，并且它的调用应该与组件的生命周期同步。这是为了确保自定义事件的派发与组件的当前状态和行为保持一致，从而保持应用的逻辑清晰和可预测。在实际开发中，应该在组件的 `<script>` 部分顶部调用 `createEventDispatcher`，并立即将返回的 `dispatch` 函数保存到组件的作用域中，以便在后续的逻辑中使用它来派发事件。这样做可以避免潜在的错误和混淆，使你的 Svelte 应用更加健壮和易于维护。
 
-###### 1.1.11.4
+###### 1.1.11.4 事件转发
 
-###### 1.1.11.5
+与 DOM event 不同，component event 不会冒泡。如果想要监听某个深度嵌套组件上的事件，中间组件必须转发该事件。
 
-##### 1.1.12
+在中间组件转发事件上，svelte 提供了一种简便的缩略写法：中间转发时间的 component 只需要提供 `on:事件名` 就可以转发事件处理函数，而不需要将函数也传递到下一层，这可以让我们减写很多代码，示例如下：
 
-##### 1.1.13 响应性语句
+App.svelte
 
-##### 1.1.14 响应性语句
+```svelte
+<script>
+ import Outer from './Outer.svelte';
 
-##### 1.1.15 响应性语句
+ function handleMessage(event) {
+  alert(event.detail.text);
+ }
+</script>
 
-##### 1.1.16 响应性语句
+<Outer on:message={handleMessage} />
+```
 
-##### 1.1.17 响应性语句
+Outer.svelte
 
-##### 1.1.18 响应性语句
+```svelte
+<script>
+ import Inner from './Inner.svelte';
+</script>
 
-##### 1.1.19 响应性语句
+<!-- 通过 on:message 直接转发 component 事件，而不用连函数也传递 -->
+<Inner on:message />
+```
 
-##### 1.1.20 响应性语句
+Inner.svelte
+
+```svelte
+<script>
+ import { createEventDispatcher } from 'svelte';
+
+ const dispatch = createEventDispatcher();
+
+ function sayHello() {
+  dispatch('message', {
+   text: 'Hello!'
+  });
+ }
+</script>
+
+<button on:click={sayHello}>
+ Click to say hello
+</button>
+```
+
+事件转发也适用于 DOM 事件，DOM 事件的事件转发跟 component 事件的事件转发。
+
+App.svelte
+
+```svelte
+<script>
+ import BigRedButton from './BigRedButton.svelte';
+ import horn from './horn.mp3'; // 任意 mp3 文件
+
+ const audio = new Audio();
+ audio.src = horn;
+
+ function handleClick() {
+  audio.load();
+  audio.play();
+ }
+</script>
+
+<BigRedButton on:click={handleClick} />
+```
+
+BigRedButton.svelte
+
+```svelte
+<button on:click>
+ Push
+</button>
+
+<style>
+ button {
+  font-size: 1.4em;
+  width: 6em;
+  height: 6em;
+  border-radius: 50%;
+  background: radial-gradient(circle at 25% 25%, hsl(0, 100%, 50%) 0, hsl(0, 100%, 40%) 100%);
+  box-shadow: 0 8px 0 hsl(0, 100%, 30%), 2px 12px 10px rgba(0,0,0,.35);
+  color: hsl(0, 100%, 30%);
+  text-shadow: -1px -1px 2px rgba(0,0,0,0.3), 1px 1px 2px rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transform: translate(0, -8px);
+  transition: all 0.2s;
+ }
+
+ button:active {
+  transform: translate(0, -2px);
+  box-shadow: 0 2px 0 hsl(0, 100%, 30%), 2px 6px 10px rgba(0,0,0,.35);
+ }
+</style>
+```
+
+###### 1.1.11.5 总结知识点
+
+- 通过 `on:事件名` 来绑定 DOM 事件；
+- 通过 `on:事件名|事件修饰符` 来对事件进行修饰，同个事件可以装配多个事件修饰符，事件修饰符有：`preventDefault`、`stopPropagation`、`passive`、`nonpassive`、`capture`、`once`、`self`、`trusted`；
+- 创建自定义事件可以通过 `svelte` 中的 `createEventDispatcher`，需要注意一点，该方法应该放在 `script` 标签的顶部调用，并将返回的 `dispatch` 方法保存在当前 script 标签的作用域中，以给后面使用。`dispatch` 方法接收两个参数，参数1是自定义事件的名称，参数2是传递的参数，要在组件外部订阅自定义事件，需要通过 `on:自定义事件名` 来进行；
+- 深度嵌套的 component 事件转发在流经的中间组件中，可以通过 `on:自定义事件名` 简写形式转发。
+
+##### 1.1.12 双向绑定
+
+**备注：**Svelte 中的数据流是自顶向下
+
+和 Vue 一样，svelte 也有自己的双向绑定，通过在 `value` 前天添加 `bind:` 即可将表单元素的值和状态双向绑定。
+
+当 `bind:value={value}` 时，可以简写为 `bind:value`。
+
+###### 1.1.12.1 Text inputs
+
+```svelte
+<script>
+ let name = 'world';
+</script>
+
+<input bind:value={name} />
+
+<h1>Hello {name}!</h1>
+```
+
+###### 1.1.12.2 Numeric inputs
+
+在DOM中，所有输入值默认都是字符串，通过在 Svelte 中使用 `bind:value`，可以让 Svelte 自动处理这些值的类型转换，以让我们在使用时直接拿到数字类型的值，而不需要做字符串到数字的转换处理。
+
+```svelte
+<script>
+ let a = 1;
+ let b = 2;
+</script>
+
+<label>
+ <input type="number" bind:value={a} min="0" max="10" />
+ <input type="range" bind:value={a} min="0" max="10" />
+</label>
+
+<label>
+ <input type="number" bind:value={b} min="0" max="10" />
+ <input type="range" bind:value={b} min="0" max="10" />
+</label>
+
+<p>{a} + {b} = {a + b}</p>
+```
+
+###### 1.1.12.3 Checkbox inputs
+
+单个 checkbox 的双向绑定不是绑定到 value，而是绑定到 checked。
+
+```svelte
+<script>
+ let yes = false;
+</script>
+
+<label>
+ <input type="checkbox" bind:checked={yes} />
+ Yes! Send me regular email spam
+</label>
+
+{#if yes}
+ <p>
+  Thank you. We will bombard your inbox and sell
+  your personal details.
+ </p>
+{:else}
+ <p>
+  You must opt in to continue. If you're not
+  paying, you're the product.
+ </p>
+{/if}
+
+<button disabled={!yes}>Subscribe</button>
+```
+
+###### 1.1.12.4 Select bindings
+
+当 svelte 的 `bind.value` 为 `undefined` 时，svelte 默认会选中第一个 option，这一默认行为只适用于在组件初始化时，`bind.value` 的值为 `undefined` 情况。
+
+```svelte
+<script>
+ let questions = [
+  {
+   id: 1,
+   text: `Where did you go to school?`
+  },
+  {
+   id: 2,
+   text: `What is your mother's name?`
+  },
+  {
+   id: 3,
+   text: `What is another personal fact that an attacker could easily find with Google?`
+  }
+ ];
+
+ let selected;
+
+ let answer = '';
+
+ function handleSubmit(e) {
+  console.log("e==", e)
+  alert(
+   `answered question ${selected.id} (${selected.text}) with "${answer}"`
+  );
+ }
+</script>
+
+<h2>Insecurity questions</h2>
+
+<form on:submit|preventDefault={handleSubmit}>
+ <select
+  bind:value={selected}
+  on:change={() => (answer = '')}
+ >
+  {#each questions as question}
+   <option value={question}>
+    {question.text}
+   </option>
+  {/each}
+ </select>
+
+ <input bind:value={answer} />
+
+ <button disabled={!answer} type="submit">
+  Submit
+ </button>
+</form>
+
+<p>
+ selected question {selected
+  ? selected.id
+  : '[waiting...]'}
+</p>
+```
+
+###### 1.1.12.5 Group inputs
+
+对于多个 `radio` 或者 `checkbox`，可以将 `bind:group` 与 `value` 属性一起使用。
+对于 `radio`，`bind:group` 的值是 `radio` 中单一的 `value`。
+对于 `checkbox`，`bind:group` 的值是 `checkbox` 中已选定的 `value`。
+
+```svelte
+<script>
+ let scoops = 2;
+ let flavours = [];
+
+ const formatter = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
+</script>
+
+<h2>Size</h2>
+
+{#each [1, 2, 3] as number}
+ <label>
+  <input
+   type="radio"
+   name="scoops"
+   value={number}
+   bind:group={scoops}
+  />
+
+  {number} {number === 1 ? 'scoop' : 'scoops'}
+ </label>
+{/each}
+
+<h2>Flavours</h2>
+
+{#each ['cookies and cream', 'mint choc chip', 'raspberry ripple'] as flavour}
+ <label>
+  <input
+   type="checkbox"
+   name="flavours"
+   value={flavour}
+   bind:group={flavours}
+  />
+
+  {flavour}
+ </label>
+{/each}
+
+{#if flavours.length === 0}
+ <p>Please select at least one flavour</p>
+{:else if flavours.length > scoops}
+ <p>Can't order more flavours than scoops!</p>
+{:else}
+ <p>
+  You ordered {scoops} {scoops === 1 ? 'scoop' : 'scoops'}
+  of {formatter.format(flavours)}
+ </p>
+{/if}
+```
+
+###### 1.1.12.6 Select multiple
+
+当 select 添加了 `multiple` 属性后，`bind:value` 获取到的值是一个数组。
+
+**注意：**当 `option` 上的 value 和内容一样时，可以省略 `option` 里面的 value 属性。
+
+```svelte
+<script>
+ let scoops = 1;
+ let flavours = [];
+
+ const formatter = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
+ $: console.log("flavours", flavours) // ['cookies and cream', 'mint choc chip', 'raspberry ripple']
+</script>
+
+<h2>Size</h2>
+
+{#each [1, 2, 3] as number}
+ <label>
+  <input
+   type="radio"
+   name="scoops"
+   value={number}
+   bind:group={scoops}
+  />
+
+  {number} {number === 1 ? 'scoop' : 'scoops'}
+ </label>
+{/each}
+
+<h2>Flavours</h2>
+
+<select multiple bind:value={flavours}>
+ {#each ['cookies and cream', 'mint choc chip', 'raspberry ripple'] as flavour}
+  <option>{flavour}</option>
+ {/each}
+</select>
+
+{#if flavours.length === 0}
+ <p>Please select at least one flavour</p>
+{:else if flavours.length > scoops}
+ <p>Can't order more flavours than scoops!</p>
+{:else}
+ <p>
+  You ordered {scoops} {scoops === 1 ? 'scoop' : 'scoops'}
+  of {formatter.format(flavours)}
+ </p>
+{/if}
+```
+
+###### 1.1.12.7 Textarea inputs
+
+和 `input` 一样都是通过 `bind:value` 来进行双向绑定。
+
+```svelte
+<script>
+ import { marked } from 'marked';
+ let value = `Some words are *italic*, some are **bold**\n\n- lists\n- are\n- cool`;
+</script>
+
+<div class="grid">
+ input
+ <textarea bind:value></textarea>
+
+ output
+ <div>{@html marked(value)}</div>
+</div>
+
+<style>
+ .grid {
+  display: grid;
+  grid-template-columns: 5em 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-gap: 1em;
+  height: 100%;
+ }
+
+ textarea {
+  flex: 1;
+  resize: none;
+ }
+</style>
+```
+
+###### 1.1.12.8 总结知识点
+
+- `Text`、`Numeric`（DOM默认所有输入值都是字符串，对于输入值为数字，svelte 会帮我们做字符串到数字的类型转换）、`Select`（当 `option` 的 `value` 和内容相同时，可以省略 `value`）、`Textarea` 都是通过 `bind:value` 来进行双向绑定，单个 `Checkbox` 则是使用 `checked` 来双向绑定，当有多个 `radio` or `checkbox` 时，通过 `bind:group` 来进行双向绑定，此时 `bind:group` 可以和 `radio` or `checkbox` 的 `value` 同时存在。
+- 当 `bind:value={value}` 时，可以简写为 `bind:value`。
+
+##### 1.1.13 组件生命周期
+
+每个组件都有一个生命周期，从它被创建时开始，到它被销毁时结束。有一些函数允许您在生命周期的关键时刻运行代码。
+
+###### 1.1.13.1 onMount
+
+`onMount` 生命周期函数，它的回调函数会在组件首次渲染到 DOM 后运行，同时，该回调函数的返回值也是一个函数，此函数会在组件卸载时执行。
+
+```svelte
+<script>
+ import { onMount } from "svelte";
+ import { paint } from './gradient.js';
+
+ onMount(() => {
+  const canvas = document.querySelector("canvas");
+  const context = canvas.getContext("2d");
+  let frame = requestAnimationFrame(function loop (t) {
+    frame = requestAnimationFrame(loop)
+    paint(context,t)
+  })
+
+  return () => {
+    cancelAnimationFrame(frame)
+  }
+ })
+</script>
+
+<canvas width={32} height={32}></canvas>
+
+<style>
+ canvas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #666;
+  mask: url(./svelte-logo-mask.svg) 50% 50% no-repeat;
+  mask-size: 60vmin;
+  -webkit-mask: url(./svelte-logo-mask.svg) 50% 50% no-repeat;
+  -webkit-mask-size: 60vmin;
+ }
+</style>
+```
+
+gradient.js
+
+```js
+export function paint(context, t) {
+ const { width, height } = context.canvas;
+ const imageData = context.getImageData(0, 0, width, height);
+
+ for (let p = 0; p < imageData.data.length; p += 4) {
+  const i = p / 4;
+  const x = i % width;
+  const y = (i / width) >>> 0;
+
+  const red = 64 + (128 * x) / width + 64 * Math.sin(t / 1000);
+  const green = 64 + (128 * y) / height + 64 * Math.cos(t / 1000);
+  const blue = 128;
+
+  imageData.data[p + 0] = red;
+  imageData.data[p + 1] = green;
+  imageData.data[p + 2] = blue;
+  imageData.data[p + 3] = 255;
+ }
+
+ context.putImageData(imageData, 0, 0);
+}
+```
+
+###### 1.1.13.2 beforeUpdate 和 afterUpdate
+
+`beforeUpdate` 函数在 DOM 更新之前触发，`afterUpdate`则用于在 DOM 与数据同步后运行代码。
+
+```svelte
+<script>
+ import Eliza from 'elizabot';
+ import {
+  beforeUpdate,
+  afterUpdate
+ } from 'svelte';
+
+ let div;
+ let autoscroll = false;
+
+ beforeUpdate(() => {
+  if (div) {
+   const scrollableDistance = div.scrollHeight - div.offsetHeight;
+   autoscroll = div.scrollTop > scrollableDistance - 20
+  }
+ });
+
+ afterUpdate(() => {
+  if(autoscroll){
+   div.scrollTo(0, div.scrollHeight)
+  }
+ });
+
+ const eliza = new Eliza();
+ const pause = (ms) => new Promise((fulfil) => setTimeout(fulfil, ms));
+
+ const typing = { author: 'eliza', text: '...' };
+
+ let comments = [];
+
+ async function handleKeydown(event) {
+  if (event.key === 'Enter' && event.target.value) {
+   const comment = {
+    author: 'user',
+    text: event.target.value
+   };
+
+   const reply = {
+    author: 'eliza',
+    text: eliza.transform(comment.text)
+   };
+
+   event.target.value = '';
+   comments = [...comments, comment];
+
+   await pause(200 * (1 + Math.random()));
+   comments = [...comments, typing];
+
+   await pause(500 * (1 + Math.random()));
+   comments = [...comments, reply].filter(comment => comment !== typing);
+  }
+ }
+</script>
+
+<div class="container">
+ <div class="phone">
+  <div class="chat" bind:this={div}>
+   <header>
+    <h1>Eliza</h1>
+
+    <article class="eliza">
+     <span>{eliza.getInitial()}</span>
+    </article>
+   </header>
+
+   {#each comments as comment}
+    <article class={comment.author}>
+     <span>{comment.text}</span>
+    </article>
+   {/each}
+  </div>
+
+  <input on:keydown={handleKeydown} />
+ </div>
+</div>
+
+<style>
+ .container {
+  display: grid;
+  place-items: center;
+  height: 100%;
+ }
+
+ .phone {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+ }
+
+ header {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 4em 0 0 0;
+  box-sizing: border-box;
+ }
+
+ h1 {
+  flex: 1;
+  font-size: 1.4em;
+  text-align: center;
+ }
+
+ .chat {
+  height: 0;
+  flex: 1 1 auto;
+  padding: 0 1em;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+ }
+
+ article {
+  margin: 0 0 0.5em 0;
+ }
+
+ .user {
+  text-align: right;
+ }
+
+ span {
+  padding: 0.5em 1em;
+  display: inline-block;
+ }
+
+ .eliza span {
+  background-color: var(--bg-1);
+  border-radius: 1em 1em 1em 0;
+  color: var(--fg-1);
+ }
+
+ .user span {
+  background-color: #0074d9;
+  color: white;
+  border-radius: 1em 1em 0 1em;
+  word-break: break-all;
+ }
+
+ input {
+  margin: 0.5em 1em 1em 1em;
+ }
+
+ @media (min-width: 400px) {
+  .phone {
+   background: var(--bg-2);
+   position: relative;
+   font-size: min(2.5vh, 1rem);
+   width: auto;
+   height: 36em;
+   aspect-ratio: 9 / 16;
+   border: 0.2em solid #222;
+   border-radius: 1em;
+   box-sizing: border-box;
+   filter: drop-shadow(1px 1px 0px #222) drop-shadow(2px 2px 0px #222) drop-shadow(3px 3px 0px #222)
+  }
+
+  .phone::after {
+   position: absolute;
+   content: '';
+   background: #222;
+   width: 60%;
+   height: 1em;
+   left: 20%;
+   top: 0;
+   border-radius: 0 0 0.5em 0.5em
+  }
+ }
+
+ @media (prefers-reduced-motion) {
+  .chat {
+   scroll-behavior: auto;
+  }
+ }
+</style>
+```
+
+###### 1.1.13.3 tick
+
+`tick` 函数不同于 Svelte 中的其他生命周期函数，它可以在组件的任何时刻被调用，而不仅仅是在组件初始化时。
+
+调用 `tick` 会返回一个 Promise，这个 Promise 会在所有待处理的状态更改应用到 DOM 之后 resolve（如果没有待处理的状态更改，则立即 resolve ）。
+
+在 Svelte 中，当你更新组件的状态时，这种更新不会立即反映到 DOM 上。相反，Svelte 会等待直到下一个微任务（microtask）阶段，这时它会检查是否还有其他更改需要应用到 DOM 上，包括其他组件的更改。
+
+关于 tick 的示例：
+
+- 问题
+在 `<textarea>` 元素中选中一段文本后按 `Tab` 键，由于 `<textarea>` 的值发生了变化，当前的文本选择会被清除，并且光标会跳到文本的末尾，这通常不是用户期望的行为。
+- 解决方案
+通过使用 `tick` 函数，我们可以在 Svelte 中解决这个问题。具体来说，我们可以在触发状态更新（如：`<textarea>` 的 value 变化）后，使用 `tick` 函数等待 DOM 更新完成，然后执行一些额外的 DOM 操作（如恢复文本选择或设置光标位置）。由于 `tick` 会等待所有待处理的 DOM 更改都完成，所以在这个 Promise resolve 之后，我们可以安全地访问和操作DOM，而不用担心状态更新尚未完成。
+
+```svelte
+<script>
+ import { tick } from "svelte"
+ let text = `Select some text and hit the tab key to toggle uppercase`;
+
+ async function handleKeydown(event) {
+  if (event.key !== 'Tab') return;
+
+  event.preventDefault();
+
+  const { selectionStart, selectionEnd, value } = this;
+  console.log("this=",this)
+  const selection = value.slice(selectionStart, selectionEnd);
+
+  const replacement = /[a-z]/.test(selection)
+   ? selection.toUpperCase()
+   : selection.toLowerCase();
+
+  text =
+   value.slice(0, selectionStart) +
+   replacement +
+   value.slice(selectionEnd);
+
+  await tick()
+  this.selectionStart = selectionStart;
+  this.selectionEnd = selectionEnd;
+ }
+</script>
+
+<textarea
+ value={text}
+ on:keydown={handleKeydown}
+></textarea>
+
+<style>
+ textarea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+ }
+</style>
+```
+
+###### 1.1.13.4 总结知识点
+
+- 在组件挂载前执行一些操作，可以使用 `onMount` 函数，它接收一个回调函数，回调函数的内容会在挂载前执行，当给它一个返回函数时，返回函数会在组件卸载时执行；
+- 当需要在 DOM 更新前触发一些内容，可以用 `beforeUpdate` 函数，如果需要在 DOM 渲染后并与数据同步后运行代码，则可以用 `afterUpdate` 函数；
+- 当你需要等待状态变更应用到 DOM 上后，再执行下一步的代码，可以使用 `tick` 函数，它可以在组件的任何时候被调用，调用 `tick` 会返回一个 Promise，该 Promise 会在所有待处理的状态应用到 DOM 之后 resolve。
+
+##### 1.1.14 stores
+
+并非所有的状态都属于 component 层次结构，当多个不相关的组件需要共享同一状态时，就需要用到 `stores`。
+
+`stores` 是一个具有 `subscribe` 方法的对象，它允许你在 `stores` 更新时通知 `subscribe` 的各方。
+
+###### 1.1.14.1 writable stores
+
+`svelte/store` 中的 `writable` 方法，可以给不同组件提供数据可写共享，其接收一个 `共享状态`，返回值是一个 `对象`，有如下几个属性：
+
+- `set` 方法，用于设置状态；
+- `update` 方法，接收一个回调函数，回调函数参数为当前状态，返回值是新的状态；
+- `subscribe` 方法，是一个订阅方法，其接收一个回调函数，回调函数的参数是当前状态。此外，它还有一个返回值是一个调用后取消订阅的方法。
+
+App.svelte
+
+```svelte
+<script>
+ import { count } from './stores.js';
+ import Incrementer from './Incrementer.svelte';
+ import Decrementer from './Decrementer.svelte';
+ import Resetter from './Resetter.svelte';
+
+ let count_value;
+
+ count.subscribe((value) => {
+  count_value = value;
+ });
+</script>
+
+<h1>The count is {count_value}</h1>
+
+<Incrementer />
+<Decrementer />
+<Resetter />
+
+```
+
+Incrementer.svelte
+
+```svelte
+<script>
+ import { count } from './stores.js';
+
+ function increment() {
+  count.update(num => num + 1)
+ }
+</script>
+
+<button on:click={increment}>
+ +
+</button>
+```
+
+Decrementer.svelte
+
+```svelte
+<script>
+ import { count } from './stores.js';
+
+ function decrement() {
+  count.update((num) => num - 1)
+ }
+</script>
+
+<button on:click={decrement}>
+ -
+</button>
+```
+
+Resetter.svelte
+
+```svelte
+<script>
+ import { count } from './stores.js';
+
+ function reset() {
+  count.set(0)
+ }
+</script>
+
+<button on:click={reset}>
+ reset
+</button>
+
+```
+
+store.js
+
+```js
+import { writable } from 'svelte/store';
+
+export const count = writable(0);
+```
+
+在上面的案例中，我们提供了一个 `subscribe` 方法，但是却都没有提供取消订阅，如果组件创建并销毁多次，将导致内存泄露。
+
+所以，我们在订阅了一个 `store` 之后，还需要在组件卸载销毁时，取消订阅。让我们稍微改造下 `App.svelte`：
+
+App.svelte
+
+```svelte
+<script>
+ import { onDestroy } from "svelte"
+ import { count } from './stores.js';
+ import Incrementer from './Incrementer.svelte';
+ import Decrementer from './Decrementer.svelte';
+ import Resetter from './Resetter.svelte';
+
+ let count_value;
+
+ const unsubscribe = count.subscribe((value) => {
+  count_value = value;
+ }); // 拿到取消订阅的方法
+
+ onDestroy(unsubscribe) // 组件卸载时取消订阅
+</script>
+
+<h1>The count is {count_value}</h1>
+
+<Incrementer />
+<Decrementer />
+<Resetter />
+```
+
+###### 1.1.14.2 auto subscriptions
+
+对于 `writable stores` 中，订阅和取消订阅的方式，当引入的 `stores` 变多时，代码就会变得臃肿，svelte 给我们提供了一套自动订阅和取消订阅的便捷写法，`只需要在 store 的前面加上一个$符号`，即可自动订阅和取消订阅。
+
+让我们改造下 App.svelte
+
+```svelte
+<script>
+ import { onDestroy } from "svelte"
+ import { count } from './stores.js';
+ import Incrementer from './Incrementer.svelte';
+ import Decrementer from './Decrementer.svelte';
+ import Resetter from './Resetter.svelte';
+</script>
+
+<h1>The count is {$count}</h1>
+
+<Incrementer />
+<Decrementer />
+<Resetter />
+```
+
+**注意：**
+
+- 自动订阅仅适用于在组件的顶级作用域（在 script 开始和结束标签之间）声明(或导入)的 store。如果是在某个函数或 if 语句内声明的 store，则需要显式订阅 store；
+- `$store`，除了可以直接在模板中用，也可以在 script 中的任何地方用，比如：事件处理程序、响应声明等；
+- 任何以 `$` 开头的名称都被认为指向一个 `store`。它实际上是一个`保留字符`，Svelte 将阻止您使用 `$` 前缀声明自己的变量。
+
+###### 1.1.14.3 Readable stores
+
+当你不需要在外部来改变一个 `store` 时， 可以用 `readable store`。
+
+通过 `svelte/store` 可以导出一个 `readable` 函数，它的第一个参数是一个初始值，当没有初始值时可以是 `undefined` 或 `null`，第二个参数是一个 `start` 函数，它接收一个 `set` 回调函数，并返回一个 `stop` 函数，当 `store` 获得第一个订阅者时，调用 `start` 函数，当最后一个订阅者取消订阅时，将调用 `stop` 函数。
+
+App.svelte
+
+```svelte
+<script>
+ import { time } from './stores.js';
+
+ const formatter = new Intl.DateTimeFormat(
+  'en',
+  {
+   hour12: true,
+   hour: 'numeric',
+   minute: '2-digit',
+   second: '2-digit'
+  }
+ );
+</script>
+
+<h1>The time is {formatter.format($time)}</h1>
+```
+
+stores.js
+
+```js
+import { readable } from 'svelte/store';
+
+export const time = readable(new Date(), function start(set) {
+ const interval = setInterval(()=>{
+  set(new Date())
+ })
+
+ return function stop() {
+  clearInterval(interval)
+ };
+});
+```
+
+###### 1.1.14.4 Derived stores
+
+当一个 `store` 需要从另一个或多个其他 `store` 派生出来，可以通过 `svelte/derived` 来实现。
+
+`derived` 函数，接收三个参数：
+
+- 参数1，是一个或多个 `store` （多个时为数组）；
+- 参数2，是一个回调函数，该函数会返回派生值，回调函数的参数1是当前 `store`，参数2是 `set` 方法，参数3是 `update` 方法（回调可以通过第2个参数 `set` 和第3个参数 `update` 来异步设置值，并在适当的时候调用其中一个或两个参数）。**注意：**该回调函数会在第一个订阅者订阅时运行，然后在 `store` 依赖项更改时运行。
+- 参数3，可以设置一个初始值（在用 `set` 和 `update` 的情况下）。
+
+```ts
+function derived<S extends Stores, T>(
+ stores: S,
+ fn: (
+  values: StoresValues<S>,
+  set: (value: T) => void,
+  update: (fn: Updater<T>) => void
+ ) => Unsubscriber | void,
+ initial_value?: T | undefined
+): Readable<T>;
+
+function derived<S extends Stores, T>(
+ stores: S,
+ fn: (values: StoresValues<S>) => T,
+ initial_value?: T | undefined
+): Readable<T>;
+```
+
+示例代码：
+
+App.svelte
+
+```svelte
+<script>
+ import { time, elapsed } from './stores.js';
+
+ const formatter = new Intl.DateTimeFormat(
+  'en',
+  {
+   hour12: true,
+   hour: 'numeric',
+   minute: '2-digit',
+   second: '2-digit'
+  }
+ );
+</script>
+
+<h1>The time is {formatter.format($time)}</h1>
+
+<p>
+ This page has been open for
+ {$elapsed}
+ {$elapsed === 1 ? 'second' : 'seconds'}
+</p>
+```
+
+stores.js
+
+```js
+import { readable, derived } from 'svelte/store';
+
+export const time = readable(new Date(), function start(set) {
+ const interval = setInterval(() => {
+  set(new Date());
+ }, 1000);
+
+ return function stop() {
+  clearInterval(interval);
+ };
+});
+
+const start = new Date();
+
+export const elapsed = derived(
+ time,
+ ($time) => Math.round(($time - start) - 1000)
+);
+```
+
+###### 1.1.14.5 custom stores
+
+我们也可以在 `store` 的基础上封装 `custom store`。
+
+App.svelte
+
+```svelte
+<script>
+ import { count } from './stores.js';
+</script>
+
+<h1>The count is {$count}</h1>
+
+<button on:click={count.increment}>+</button>
+<button on:click={count.decrement}>-</button>
+<button on:click={count.reset}>reset</button>
+```
+
+stores.js
+
+```js
+import { writable } from 'svelte/store';
+
+function createCount() {
+ const { subscribe, set, update } = writable(0);
+
+ return {
+  subscribe,
+  increment: () => update(n => n + 1),
+  decrement: () => update(n => n - 1),
+  reset: () => set(0)
+ };
+}
+
+export const count = createCount();
+```
+
+###### 1.1.14.6 store bindings
+
+`store` 也可以双向绑定，并且 `store` 的赋值 `$name += '!'` 等于 `name.set($name += '!')`。示例如下：
+App.svelte
+
+```svelte
+<script>
+ import { name, greeting } from './stores.js';
+</script>
+
+<h1>{$greeting}</h1>
+<input bind:value={$name} />
+
+<button on:click={() => $name += '!'}>
+ Add exclamation mark!
+</button>
+```
+
+stores.js
+
+```js
+import { writable, derived } from 'svelte/store';
+
+export const name = writable('world');
+export const greeting = derived(name, ($name) => `Hello ${$name}!`);
+```
+
+###### 1.1.14.7 总结知识点
+
+- 当需要在外部订阅修改一个 `store` 时，可以用 `writable`，它调用后的返回一个对象，其下 `set`、`update`、`subscribe` 方法允许你在外部获得、设置和更新 `store`。**注意：**订阅了store，记得要在组件的 `onDestroy` 中调用 `subscribe` 方法的返回值（返回值是一个取消订阅的方法）；
+- 当只是在外部订阅一个 `store` 时，可以用 `readable` store，其接收两个参数，参数1是初始值，参数2是回调函数，该回调函数接收一个 `set` 方法，用于内部修改 `store`；
+- 当需要基于一个或多个 `store` 派生一个新的 `store`，可以用 `derived`，它接收3个参数，参数1是一个或多个 `store` （多个时为一个数组）；参数2是回调函数，分别接收当前`store`、`set`、`update`，回调函数会返回派生的 `store`值；参数3是初始值；
+- 以上 `store` 都可以通过在前面添加 `$` 来自动订阅 `store`，如：`$name` 就是自动订阅 `store name`；通过 `$name = $name + 'a'` 来便携式完成 `name.set($name + 'a')` 的操作。
+- 有时候为了方便我们使用 `store`，我们可以在原来 `store` 的基础上做二次封装；
+- `store` 也能双向绑定到 `bind:value` 上。
 
 #### 1.2 Svelte 高级
 
 #### 1.3 SvelteKit 基础
+
+Svelte 是一个组件框架，而 SvelteKit 是一个 app 框架，它可以帮助我们解决生产构建的棘手问题，比如：
+
+- 路由
+- 服务端渲染
+- 数据获取
+- service workers
+- ts集成
+- 预渲染
+- spa
+- lib package
+- 生产优化构建
+- 部署到不同的 hosting providers
+- ...
+
+SvelteKit app 默认是服务器渲染（像传统的“多页面应用程序”或MPAs），具有出色的首次加载性能和 SEO 特征，然后也可以过渡到客户端导航（像现代的“单页面应用程序”），以避免在用户导航时重新加载所有内容（包括第三方分析代码等内容），它们可以在 js 运行的任何地方运行。
+
+##### 项目结构
+
+- src
+  - routes
+    - +pages.svelte
+  - app.html
+- static
+  - favicon.png
+- package.json
+- svelte.config.js
+- vite.config.js
+
+1. `src` 是 app 源代码的存放位置；
+2. `src/app.html` 是你的页面模板；
+3. `src/routes` 定义了 app 的路由；
+4. `static` 包含 app 部署时的所有 assets，如：favicon.png等。
+5. `package.json`，它列出了项目的依赖项，包括 svelte、@sveltejs/kit、以及和 SvelteKit CLI 交互的各种 scripts。**注意**，它还指定了 "type": "module"，这意味着 `.js` 文件在默认情况下被视为原生 `js模块`，而不是传统的 `cjs` 格式。
+6. `svelte.config.js`，包含项目配置， [svelte config 文档]("https://kit.svelte.dev/docs/configuration")。
+7. `vite.config.js`，包含 Vite 配置。因为 SvelteKit 中使用了 Vite，所以可以使用 Vite 的特性，比如：热模块替换、TypeScript支持、静态资产处理等等。 [vite 文档]("https://cn.vitejs.dev")。
+
+##### 1.3.1 Routing
+
+###### 1.3.1.1 Pages
+
+SvelteKit 使用基于文件系统的路由，这意味着你 app 的路由是由代码库中的目录定义的。
+
+每个位于 `src/routes` 目录中的 `+page.svelte` 文件都会在 app 中创建一个页面。
+
+假设我们目前 `app` 中的 `src` 结构是这样：
+
+- src
+  - routes
+    - +pages.svelte
+  - app.html
+
+在 app 中，我们目前只有一个页面 `src/routes/+page.svelte`，它映射到根目录 `/`。如果我们导航到 `/about`，将会看到一个 `404 - not found` error。
+
+那要解决这个问题，就是在 `routes` 下面新增 `about` 文件夹，并添加 `+page.svelte` 文件，最终目录结构是这样：
+
+- src
+  - routes
+    - about
+      - +page.svelte
+    - +pages.svelte
+  - app.html
+
+然后就可以在 `/` 和 `/about` 之间导航了，记得要添加导航标签：`<a href="/">home</a>` 和 `<a href="/about">about</a>`。
+
+###### 1.3.1.2 Layouts
+
+app 的不同页面通常会共享相同的 UI，对于这些相同的 UI，在每个 +page.svelte 组件中重复实现这些UI是不明智的，我们可以创建一个 +layout.svelte 组件，并将其应用于同一目录下的所有路由。
+
+在当前案例中，我们有两个路由，`src/routes/+page.svelte` 和 `src/routes/about/+page.svelte`，它们包含相同的导航 UI，现在我们创建一个新的文件 `src/routes/+layout.svelte`。
+
+现在的文件结构变成这样：
+
+- src
+  - about
+    - page.svelte
+  - +layout.svelte
+  - +page.svelte
+
+然后导航内容从 `+page.svelte` 移动到 `+layout.svelte` 中。`<slot></slot>` 元素是页面内容的渲染位置。
+
+一个 `+layout.svelte` 文件适用于每个子路由，包括兄弟的 `+page.svelte`（如果它存在）。你可以将布局嵌套到任意深度。
+
+修改后的三个文件的内容如下：
+
+`src/routes/+page.svelte`
+
+```svelte
+<h1>home</h1>
+<p>this is the home page.</p>
+```
+
+`src/routes/+layout.svelte`
+
+```svelte
+<nav>
+ <a href="/">home</a>
+ <a href="/about">about</a>
+</nav>
+
+<slot></slot>
+```
+
+`src/routes/about/+page.svelte`
+
+```svelte
+<h1>about</h1>
+<p>this is the about page.</p>
+```
+
+###### 1.3.1.3 Route parameters
+
+##### 1.3.2 loading data
+
+##### 1.3.3 headers and cookies
+
+##### 1.3.4 shared modules
+
+##### 1.3.5 forms
+
+##### 1.3.6 api routes
+
+##### 1.3.7 stores
+
+##### 1.3.8 errors and redirects
 
 #### 1.4 SvelteKit 高级
 
